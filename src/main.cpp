@@ -104,15 +104,13 @@ static bool load_config(const std::string &path, Config &cfg) {
 
 // ---------------------------------------------------------------- e-ink
 
-// Full-screen flash to clear ghosting. `eips -c` exists on every Kindle.
+// Clear e-ink ghosting by forcing GTK to repaint the whole window. (Calling
+// `eips -c` directly would blank the framebuffer behind X's back, leaving
+// the screen empty until something else redraws.)
 static gboolean full_refresh_cb(gpointer) {
-    if (g_cfg.kindle) {
-        g_spawn_command_line_async("sh -c 'eips -c; sleep 1; eips -f'", nullptr);
-        // Redraw ourselves after the flash.
-        g_timeout_add(1500, [](gpointer w) -> gboolean {
-            gtk_widget_queue_draw(GTK_WIDGET(w));
-            return FALSE;
-        }, gtk_widget_get_toplevel(g_clock));
+    if (g_cfg.kindle && g_clock) {
+        GtkWidget *top = gtk_widget_get_toplevel(g_clock);
+        if (top->window) gdk_window_invalidate_rect(top->window, nullptr, TRUE);
     }
     return TRUE;
 }
