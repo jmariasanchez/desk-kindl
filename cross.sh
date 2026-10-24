@@ -48,7 +48,7 @@ PATH="$LLD_DIR:$PATH" "$CLANGXX" $FLAGS -o "$HERE/build-kindle/desk-kindl" \
   $LIBS "$ICAL/ical/lib/libical.a" -lm
 
 D="$HERE/dist/deskkindl"
-mkdir -p "$D/bin" "$D/config"
+rm -rf "$D" && mkdir -p "$D/bin" "$D/config"
 cp "$HERE"/kual/deskkindl/config.xml "$HERE"/kual/deskkindl/menu.json "$D/"
 cp "$HERE"/kual/deskkindl/bin/*.sh "$D/bin/"
 cp "$HERE/build-kindle/desk-kindl" "$D/bin/"

@@ -54,10 +54,19 @@ struct Event {
     std::string title;
 };
 
+// RECURRENCE-ID;RANGE=THISANDFUTURE: every occurrence from `from` on is
+// shifted by `shift` and takes the override's length, title and status.
+struct RangeOverride {
+    time_t from, shift, length;
+    std::string title;
+    bool cancelled;
+};
+
 struct Agenda {
     icaltimezone *zone;
     time_t now, day_end;
     std::set<std::pair<std::string, time_t>> overrides;
+    std::map<std::string, std::vector<RangeOverride>> ranges;
     std::vector<Event> events;
 };
 
@@ -71,11 +80,26 @@ static void collect_event(icalcomponent *component, icaltime_span *span, void *d
     bool all_day = icalcomponent_get_dtstart(component).is_date;
     time_t start = all_day ? date_in_zone(span->start, agenda.zone) : span->start;
     time_t end = all_day ? date_in_zone(span->end, agenda.zone) : span->end;
-    if (end <= agenda.now || start >= agenda.day_end) return;
     const char *uid = icalcomponent_get_uid(component);
-    if (!icalcomponent_get_first_property(component, ICAL_RECURRENCEID_PROPERTY) &&
-        agenda.overrides.count({uid, start})) return;
-    agenda.events.push_back({start, end, all_day, escaped(icalcomponent_get_summary(component))});
+    std::string title = escaped(icalcomponent_get_summary(component));
+    if (!icalcomponent_get_first_property(component, ICAL_RECURRENCEID_PROPERTY)) {
+        if (agenda.overrides.count({uid, start})) return;
+        // Latest range override at or before this occurrence wins.
+        const RangeOverride *range = nullptr;
+        auto found = agenda.ranges.find(uid);
+        if (found != agenda.ranges.end())
+            for (const auto &candidate : found->second)
+                if (candidate.from <= start && (!range || candidate.from > range->from))
+                    range = &candidate;
+        if (range) {
+            if (range->cancelled) return;
+            start += range->shift;
+            end = start + range->length;
+            title = range->title;
+        }
+    }
+    if (end <= agenda.now || start >= agenda.day_end) return;
+    agenda.events.push_back({start, end, all_day, title});
 }
 
 std::string calendar_agenda(const std::string &ics, time_t now, const std::string &timezone) {
@@ -118,12 +142,21 @@ std::string calendar_agenda(const std::string &ics, time_t now, const std::strin
         }
         icalproperty *rid = icalcomponent_get_first_property(event, ICAL_RECURRENCEID_PROPERTY);
         if (rid) {
-            // shortcut: Google emits individual overrides; reject range overrides until supported.
-            if (icalproperty_get_first_parameter(rid, ICAL_RANGE_PARAMETER))
-                throw std::runtime_error("Calendar range overrides are unsupported");
             icaltimetype t = icalproperty_get_datetime_with_component(rid, event);
-            agenda.overrides.insert({icalcomponent_get_uid(event),
-                icaltime_as_timet_with_zone(t, t.zone ? t.zone : agenda.zone)});
+            time_t from = icaltime_as_timet_with_zone(t, t.zone ? t.zone : agenda.zone);
+            if (icalproperty_get_first_parameter(rid, ICAL_RANGE_PARAMETER)) {
+                // The override is applied to the master's occurrences instead.
+                icaltimetype s = icalcomponent_get_dtstart(event);
+                icaltimetype e = icalcomponent_get_dtend(event);
+                time_t start = icaltime_as_timet_with_zone(s, s.zone ? s.zone : agenda.zone);
+                time_t end = icaltime_is_null_time(e) ? start
+                    : icaltime_as_timet_with_zone(e, e.zone ? e.zone : agenda.zone);
+                agenda.ranges[icalcomponent_get_uid(event)].push_back(
+                    {from, start - from, end - start, escaped(icalcomponent_get_summary(event)),
+                     icalcomponent_get_status(event) == ICAL_STATUS_CANCELLED});
+                continue;
+            }
+            agenda.overrides.insert({icalcomponent_get_uid(event), from});
         }
         components.push_back(event);
     }

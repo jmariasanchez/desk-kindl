@@ -71,6 +71,20 @@ int main(int argc, char **argv) {
         "BEGIN:VEVENT\r\nUID:late\r\nDTSTART;TZID=Europe/Dublin:20261025T003000\r\n"
         "DTEND;TZID=Europe/Dublin:20261025T010000\r\nSUMMARY:Tomorrow early\r\nEND:VEVENT\r\n";
     assert(!contains(agenda(after_midnight, "20261024T213000Z"), "Tomorrow early"));
+    // "This and following": from 20 Oct the standup moved to 15:00 and was renamed.
+    const std::string range = daily +
+        "BEGIN:VEVENT\r\nUID:daily\r\nRECURRENCE-ID;RANGE=THISANDFUTURE;TZID=Europe/Dublin:20261020T110000\r\n"
+        "DTSTART;TZID=Europe/Dublin:20261020T150000\r\nDTEND;TZID=Europe/Dublin:20261020T153000\r\n"
+        "SUMMARY:Afternoon sync\r\nEND:VEVENT\r\n";
+    result = agenda(range);
+    assert(!contains(result, "Standup"));
+    assert(contains(result, "NEXT · 15:00 · in 270 min"));
+    assert(contains(result, "Afternoon sync"));
+    assert(contains(agenda(range, "20261019T093000Z"), "Standup"));
+    const std::string range_cancelled = daily +
+        "BEGIN:VEVENT\r\nUID:daily\r\nRECURRENCE-ID;RANGE=THISANDFUTURE;TZID=Europe/Dublin:20261020T110000\r\n"
+        "DTSTART;TZID=Europe/Dublin:20261020T110000\r\nSTATUS:CANCELLED\r\nEND:VEVENT\r\n";
+    assert(contains(agenda(range_cancelled), "No more appointments today"));
 
     bool rejected = false;
     try { calendar_agenda("<html>Sign in</html>", at("20261024T093000Z"), "Europe/Dublin"); }

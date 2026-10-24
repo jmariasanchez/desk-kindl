@@ -41,6 +41,14 @@ result = run()
 assert "Sync unavailable" in result.stdout
 assert "No more appointments today" in result.stdout
 assert cache.read_text() == valid
+# A failed sync is not retried on the next minute's run.
+env["TEST_EXIT"] = "0"
+feed.write_text(valid.replace("END:VCALENDAR", "BEGIN:VEVENT\nUID:x\nDTSTART:20300101T000000Z\nEND:VEVENT\nEND:VCALENDAR"))
+assert "Sync unavailable" in run().stdout
+assert cache.read_text() == valid
+feed.write_text("failed download")
+tried = Path(str(cache) + ".tried")
+tried.write_text(str(int(time.time()) - 1000))
 # An HTTP 200 login/error page must not replace a valid calendar.
 env["TEST_EXIT"] = "0"
 assert "Sync unavailable" in run().stdout

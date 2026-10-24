@@ -23,7 +23,22 @@ if [ -f "$cache" ]; then
     last=$(stat -c %Y "$cache" 2>/dev/null || stat -f %m "$cache")
 fi
 status=""
+# Remember the last attempt so a failing feed is retried every 15 min, not every minute.
+tried=0
+[ -f "$cache.tried" ] && tried=$(cat "$cache.tried" 2>/dev/null)
+case "$tried" in ''|*[!0-9]*) tried=0 ;; esac
+[ "$now" -lt "$tried" ] && tried=0
+due=0
 if [ "$last" -eq 0 ] || [ $((now - last)) -ge 900 ] || [ "$now" -lt "$last" ]; then
+    due=1
+    # Retry a first-ever download sooner: there is nothing to show yet.
+    wait=900; [ "$last" -eq 0 ] && wait=120
+    [ "$tried" -gt 0 ] && [ $((now - tried)) -lt "$wait" ] && due=2
+fi
+if [ "$due" -eq 2 ]; then
+    status="Sync unavailable · "
+elif [ "$due" -eq 1 ]; then
+    echo "$now" > "$cache.tried"
     # Fixed staging file: one panel process runs at a time, and rename preserves the last good copy.
     pending="$cache.pending"
     if fetch "$ICAL_URL" > "$pending" 2>/dev/null &&

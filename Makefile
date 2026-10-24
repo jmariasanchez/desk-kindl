@@ -38,6 +38,7 @@ kindle:
 
 # Package a KUAL extension: copy dist/deskkindl to /mnt/us/extensions/ on the Kindle.
 dist: kindle
+	rm -rf dist/deskkindl dist/deskkindl.zip
 	mkdir -p dist/deskkindl/bin dist/deskkindl/config
 	cp -r kual/deskkindl/* dist/deskkindl/
 	cp config/dashboard.conf config/env.example dist/deskkindl/config/
