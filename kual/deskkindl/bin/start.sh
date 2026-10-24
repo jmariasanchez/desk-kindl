@@ -1,11 +1,13 @@
 #!/bin/sh
-# Launched by KUAL. Runs the dashboard on top of the Kindle framework.
-DIR=$(cd "$(dirname "$0")/.." && pwd)
-export DISPLAY=:0
-# Stop the Kindle screensaver from covering the dashboard.
-lipc-set-prop com.lab126.powerd preventScreenSaver 1
+# Launched by KUAL. Runs in the foreground like pomo-kndl: a backgrounded
+# GUI can get killed when KUAL's shell exits.
+DIR="$(cd "$(dirname "$0")/.." && pwd)"
+LOG="$DIR/desk-kindl.log"
+export DISPLAY="${DISPLAY:-:0}"
+echo "--- $(date) start.sh (DISPLAY=$DISPLAY uid=$(id -u))" >>"$LOG"
 killall desk-kindl 2>/dev/null
-cd "$DIR/config"
-# KOReader libs provide curl-less TLS fallbacks if needed; GTK 2 is from firmware.
-export LD_LIBRARY_PATH="/mnt/us/koreader/libs:$LD_LIBRARY_PATH"
-nohup "$DIR/bin/desk-kindl" "$DIR/config/dashboard.conf" > "$DIR/desk-kindl.log" 2>&1 &
+lipc-set-prop com.lab126.powerd preventScreenSaver 1 >>"$LOG" 2>&1
+cd "$DIR/config" || { echo "no config dir" >>"$LOG"; exit 1; }
+"$DIR/bin/desk-kindl" "$DIR/config/dashboard.conf" >>"$LOG" 2>&1
+echo "exit $?" >>"$LOG"
+lipc-set-prop com.lab126.powerd preventScreenSaver 0

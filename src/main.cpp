@@ -302,6 +302,7 @@ int main(int argc, char **argv) {
     gtk_init(&argc, &argv);
 
     std::string cfg_path = find_config(argc, argv);
+    fprintf(stderr, "desk-kindl: config %s\n", cfg_path.c_str());
     if (!load_config(cfg_path, g_cfg)) {
         fprintf(stderr, "desk-kindl: cannot read config %s\n", cfg_path.c_str());
         return 1;
@@ -320,7 +321,12 @@ int main(int argc, char **argv) {
     GdkScreen *scr = gdk_screen_get_default();
     gtk_window_set_default_size(GTK_WINDOW(win), g_cfg.kindle ? gdk_screen_get_width(scr) : 758,
                                 g_cfg.kindle ? gdk_screen_get_height(scr) : 1024);
-    if (g_cfg.kindle) gtk_window_fullscreen(GTK_WINDOW(win));
+    if (g_cfg.kindle) {
+        // No gtk_window_fullscreen: the Kindle WM sizes the window from the
+        // title hint (same setup as pomo-kndl, known to work on this device).
+        fprintf(stderr, "desk-kindl: screen %dx%d, %d panels\n", gdk_screen_get_width(scr),
+                gdk_screen_get_height(scr), (int)g_cfg.panels.size());
+    }
     force_white(win);
     g_signal_connect(win, "destroy", G_CALLBACK(gtk_main_quit), nullptr);
     g_signal_connect(win, "key-press-event", G_CALLBACK(on_key), nullptr);
@@ -375,7 +381,9 @@ int main(int argc, char **argv) {
     if (g_cfg.full_refresh > 0)
         g_timeout_add_seconds(g_cfg.full_refresh, full_refresh_cb, nullptr);
 
+    fprintf(stderr, "desk-kindl: window shown, entering main loop\n");
     gtk_main();
+    fprintf(stderr, "desk-kindl: main loop ended\n");
     if (g_cfg.kindle) kindle_teardown();
     return 0;
 }
