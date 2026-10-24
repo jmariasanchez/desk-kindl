@@ -58,8 +58,8 @@ Feeds with `RECURRENCE-ID;RANGE` overrides are rejected, preserving the last goo
 
 ```sh
 make run      # uses kindle = false
-make test     # calendar and offline-cache regression checks
-make test-ui  # layout checks at 758×1024 and 600×800; requires a display
+make test     # startup, calendar and offline-cache regression checks
+make test-ui  # portrait/landscape and in-flight refresh checks; requires a display
 ```
 
 Build prerequisites: C++11 compiler, GTK 2 via pkg-config, CMake, Perl,
@@ -67,6 +67,12 @@ curl, and shasum; Python 3 for tests. The first build downloads and verifies
 libical 3.0.20, then links it statically. Timezone data is bundled with the app.
 
 Keys: `r` refresh, `q`/`Esc` quit. On the Kindle: tap to refresh, hold 2s to quit (or KUAL > Stop dashboard).
+
+Startup checks cover absolute/relative paths, PATH lookup, launcher aliases and
+symlinks, including discovery of bundled timezones. UI checks cover 758×1024,
+600×800 and 1024×758, repeated orientation changes and panel output arriving
+after a layout rebuild. Use `G_DEBUG=fatal-warnings make test-ui` to fail on GTK
+runtime warnings. These desktop checks do not replace an on-device launch test.
 
 ## Build for Kindle
 

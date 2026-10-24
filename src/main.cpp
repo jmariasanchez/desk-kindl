@@ -9,6 +9,10 @@
 #include <gdk/gdkkeysyms.h>
 #include <glib.h>
 #include <unistd.h>
+#include <limits.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 
 #include <algorithm>
 #include <cstdio>
@@ -405,11 +409,40 @@ static gboolean on_release(GtkWidget *, GdkEventButton *ev, gpointer) {
     return FALSE;
 }
 
-static std::string find_config(int argc, char **argv) {
+static std::string executable_path(const char *argv0) {
+    char path[PATH_MAX + 1];
+#if defined(__linux__)
+    // Locate the running image without relying on argv[0] or rechecking its
+    // executable permissions through GLib.
+    ssize_t length = readlink("/proc/self/exe", path, sizeof path - 1);
+    if (length > 0 && length < (ssize_t)sizeof path - 1)
+        return std::string(path, length);
+#elif defined(__APPLE__)
+    uint32_t size = sizeof path;
+    if (_NSGetExecutablePath(path, &size) == 0) {
+        char *resolved = realpath(path, nullptr);
+        std::string result = resolved ? resolved : path;
+        free(resolved);
+        return result;
+    }
+#endif
+    if (!argv0 || !*argv0) return "";
+    // Do not require another executable-permission check for an explicit path:
+    // the OS has already launched this program successfully.
+    gchar *found = strchr(argv0, '/') ? g_strdup(argv0) : g_find_program_in_path(argv0);
+    if (!found) return "";
+    char *resolved = realpath(found, nullptr);
+    std::string result = resolved ? resolved : found;
+    free(resolved);
+    g_free(found);
+    return result;
+}
+
+static std::string find_config(int argc, char **argv, const std::string &binary) {
     if (argc > 1) return argv[1];
     const char *env = getenv("DESKKINDL_CONFIG");
     if (env) return env;
-    gchar *dir = g_path_get_dirname(argv[0]);
+    gchar *dir = g_path_get_dirname(binary.c_str());
     std::string cand[] = {std::string(dir) + "/../config/dashboard.conf",
                           std::string(dir) + "/dashboard.conf",
                           "/mnt/us/extensions/deskkindl/config/dashboard.conf",
@@ -421,16 +454,18 @@ static std::string find_config(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
-    gchar *binary = g_find_program_in_path(argv[0]);
-    if (!binary) return 1;
-    g_setenv("DESKKINDL_BIN", binary, TRUE);
-    gchar *binary_dir = g_path_get_dirname(binary);
+    std::string binary = executable_path(argc > 0 ? argv[0] : nullptr);
+    if (binary.empty()) {
+        fprintf(stderr, "desk-kindl: cannot locate the running executable\n");
+        return 1;
+    }
+    g_setenv("DESKKINDL_BIN", binary.c_str(), TRUE);
+    gchar *binary_dir = g_path_get_dirname(binary.c_str());
     std::string zones = std::string(binary_dir) + "/../config/zoneinfo";
     if (!g_file_test((zones + "/zones.tab").c_str(), G_FILE_TEST_EXISTS))
         zones = std::string(binary_dir) + "/zoneinfo";
     calendar_zoneinfo(zones);
     g_free(binary_dir);
-    g_free(binary);
     if (argc == 4 && std::string(argv[1]) == "--calendar") {
         try {
             std::ifstream in(argv[2], std::ios::binary);
@@ -448,7 +483,7 @@ int main(int argc, char **argv) {
     }
     gtk_init(&argc, &argv);
 
-    std::string cfg_path = find_config(argc, argv);
+    std::string cfg_path = find_config(argc, argv, binary);
     fprintf(stderr, "desk-kindl: config %s\n", cfg_path.c_str());
     if (!load_config(cfg_path, g_cfg)) {
         fprintf(stderr, "desk-kindl: cannot read config %s\n", cfg_path.c_str());

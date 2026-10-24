@@ -55,6 +55,7 @@ run: $(BIN)
 	./$(BIN) build/desktop.conf
 
 test: $(BIN)
+	python3 tests/startup.py
 	$(CXX) $(CXXFLAGS) $(ICAL_CFLAGS) tests/calendar.cpp src/calendar.cpp -o build/test-calendar $(ICAL_LIB) -pthread
 	./build/test-calendar $(ICAL_DIR)/libical-3.0.20/zoneinfo
 	python3 tests/calendar_cache.py
