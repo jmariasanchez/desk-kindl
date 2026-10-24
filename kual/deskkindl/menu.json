@@ -4,8 +4,9 @@
       "name": "Desk Dashboard",
       "priority": 0,
       "items": [
-        { "name": "Start dashboard", "priority": 1, "action": "bin/start.sh" },
-        { "name": "Stop dashboard",  "priority": 2, "action": "bin/stop.sh" }
+        { "name": "Start dashboard", "priority": 1, "action": "./bin/start.sh", "exitmenu": true },
+        { "name": "Stop dashboard",  "priority": 2, "action": "./bin/stop.sh", "exitmenu": true },
+        { "name": "Diagnose (writes diagnose.txt)", "priority": 3, "action": "./bin/diagnose.sh", "exitmenu": false }
       ]
     }
   ]

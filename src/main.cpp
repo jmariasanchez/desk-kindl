@@ -315,7 +315,7 @@ int main(int argc, char **argv) {
     // Kindle's window manager places apps by title: L=layer A=application,
     // N=name, PC=N means no chrome (fullscreen).
     gtk_window_set_title(GTK_WINDOW(win),
-                         g_cfg.kindle ? "L:A_N:application_ID:net.deskkindl_PC:N"
+                         g_cfg.kindle ? "L:A_N:application_ID:deskkindl_PC:N_O:URL"
                                       : "desk-kindl");
     GdkScreen *scr = gdk_screen_get_default();
     gtk_window_set_default_size(GTK_WINDOW(win), g_cfg.kindle ? gdk_screen_get_width(scr) : 758,
