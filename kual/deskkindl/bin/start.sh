@@ -8,6 +8,9 @@ echo "--- $(date) start.sh (DISPLAY=$DISPLAY uid=$(id -u))" >>"$LOG"
 killall desk-kindl 2>/dev/null
 lipc-set-prop com.lab126.powerd preventScreenSaver 1 >>"$LOG" 2>&1
 cd "$DIR/config" || { echo "no config dir" >>"$LOG"; exit 1; }
-"$DIR/bin/desk-kindl" "$DIR/config/dashboard.conf" >>"$LOG" 2>&1
-echo "exit $?" >>"$LOG"
-lipc-set-prop com.lab126.powerd preventScreenSaver 0
+# Detach so KUAL closing does not take the app with it (same as pomo-kndl).
+(
+  "$DIR/bin/desk-kindl" "$DIR/config/dashboard.conf" >>"$LOG" 2>&1
+  echo "exit $?" >>"$LOG"
+  lipc-set-prop com.lab126.powerd preventScreenSaver 0
+) </dev/null >/dev/null 2>&1 &
