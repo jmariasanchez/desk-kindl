@@ -2,3 +2,4 @@ build/
 dist/
 config/env
 build-kindle/
+config/.calendar-cache/

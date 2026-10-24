@@ -1,15 +1,47 @@
 #!/bin/sh
-# Upcoming events from an iCal feed (today and next days), no dependencies.
+# Download the private Google iCal feed; render the cached agenda every minute.
 . scripts/common.sh
-need ICAL_URL
-
-today=$(date +%Y%m%d)
-fetch "$ICAL_URL" | tr -d '\r' | awk -v today="$today" -v max="${CAL_LIMIT:-6}" '
-/^BEGIN:VEVENT/ { s=""; d=""; t="" }
-/^SUMMARY/      { sub(/^[^:]*:/, ""); s=$0 }
-/^DTSTART/      { v=$0; sub(/^[^:]*:/, "", v); d=substr(v,1,8); t=(length(v)>8)?substr(v,10,2)":"substr(v,12,2):"all day" }
-/^END:VEVENT/   { if (d >= today) print d " " t "\t" s }
-' | sort | head -n "${CAL_LIMIT:-6}" | awk -F'\t' -v today="$today" '
-{ split($1, a, " "); day = (a[1]==today) ? "Today" : substr(a[1],7,2) "/" substr(a[1],5,2);
-  printf "%-6s %-7s %s\n", day, a[2], $2; n++ }
-END { if (!n) print "No upcoming events" }'
+if [ -z "$ICAL_URL" ]; then
+    printf '#markup\n<big>Your day, at a glance</big>\nAdd your Google Calendar iCal link to get started.\n'
+    exit 0
+fi
+case "$ICAL_URL" in
+    https://*) ;;
+    *) echo "Calendar needs an HTTPS iCal link"; exit 1 ;;
+esac
+if [ ! -x "$DESKKINDL_BIN" ]; then
+    echo "Calendar reader unavailable"
+    exit 1
+fi
+umask 077
+mkdir -p .calendar-cache || exit 1
+key=$(printf '%s' "$ICAL_URL" | cksum | awk '{print $1 "-" $2}')
+cache=".calendar-cache/$key.ics"
+now=$(date +%s)
+last=0
+if [ -f "$cache" ]; then
+    last=$(stat -c %Y "$cache" 2>/dev/null || stat -f %m "$cache")
+fi
+status=""
+if [ "$last" -eq 0 ] || [ $((now - last)) -ge 900 ] || [ "$now" -lt "$last" ]; then
+    # Fixed staging file: one panel process runs at a time, and rename preserves the last good copy.
+    pending="$cache.pending"
+    if fetch "$ICAL_URL" > "$pending" 2>/dev/null &&
+       "$DESKKINDL_BIN" --calendar "$pending" "$DESKKINDL_TIMEZONE" >/dev/null 2>&1 &&
+       mv "$pending" "$cache"; then
+        last=$now
+    else
+        status="Sync unavailable · "
+    fi
+fi
+if [ "$last" -eq 0 ]; then
+    echo "Calendar unavailable — check your connection and private iCal link."
+    exit 1
+fi
+if ! agenda=$("$DESKKINDL_BIN" --calendar "$cache" "$DESKKINDL_TIMEZONE" 2>/dev/null); then
+    echo "Saved calendar could not be read. Check the calendar and timezone."
+    exit 1
+fi
+age=$(( (now - last) / 60 ))
+[ "$age" -ge 0 ] || age=0
+printf '%s\n<small>%sSynced %s min ago</small>\n' "$agenda" "$status" "$age"

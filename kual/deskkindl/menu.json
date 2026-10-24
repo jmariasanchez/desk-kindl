@@ -6,7 +6,9 @@
       "items": [
         { "name": "Start dashboard", "priority": 1, "action": "./bin/start.sh", "exitmenu": true },
         { "name": "Stop dashboard",  "priority": 2, "action": "./bin/stop.sh", "exitmenu": true },
-        { "name": "Diagnose (writes diagnose.txt)", "priority": 3, "action": "./bin/diagnose.sh", "exitmenu": false }
+        { "name": "Landscape layout", "priority": 3, "action": "./bin/orientation.sh landscape", "exitmenu": true },
+        { "name": "Portrait layout",  "priority": 4, "action": "./bin/orientation.sh portrait", "exitmenu": true },
+        { "name": "Diagnose (writes diagnose.txt)", "priority": 5, "action": "./bin/diagnose.sh", "exitmenu": false }
       ]
     }
   ]

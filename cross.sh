@@ -14,6 +14,7 @@ for m in .done-v2 .done-gtk; do
 done
 CLANGXX="${CLANGXX:-$(nix build --no-link --print-out-paths nixpkgs#llvmPackages_21.clang-unwrapped)/bin/clang++}"
 LLD_DIR="${LLD_DIR:-$(nix build --no-link --print-out-paths nixpkgs#llvmPackages_21.lld)/bin}"
+LLVM_BIN="${LLVM_BIN:-$(nix build --no-link --print-out-paths nixpkgs#llvmPackages_21.llvm)/bin}"
 
 R="$CACHE/root"; G="$CACHE/gtkroot"
 INC=""
@@ -34,14 +35,26 @@ LIBS="-L$R/usr/lib/arm-linux-gnueabihf -L$R/lib/arm-linux-gnueabihf
 #   and put a second GLib in the process next to the firmware's one.
 
 mkdir -p "$HERE/build-kindle"
-PATH="$LLD_DIR:$PATH" "$CLANGXX" $FLAGS -o "$HERE/build-kindle/desk-kindl" "$HERE/src/main.cpp" $INC $LIBS
+ICAL="$HERE/build-kindle/deps"
+PATH="$LLD_DIR:$PATH" sh "$HERE/scripts/build-libical.sh" "$ICAL" \
+  -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=arm \
+  -DCMAKE_C_COMPILER="$(dirname "$CLANGXX")/clang" -DCMAKE_SYSROOT="$R" \
+  -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+  "-DCMAKE_C_FLAGS=--target=arm-linux-gnueabihf --gcc-toolchain=$R/usr -mcpu=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard" \
+  -DCMAKE_AR="$LLVM_BIN/llvm-ar" -DCMAKE_RANLIB="$LLVM_BIN/llvm-ranlib"
+PATH="$LLD_DIR:$PATH" "$CLANGXX" $FLAGS -o "$HERE/build-kindle/desk-kindl" \
+  "$HERE/src/main.cpp" "$HERE/src/calendar.cpp" $INC \
+  -I"$ICAL/ical/src" -I"$ICAL/libical-3.0.20/src/libical" \
+  $LIBS "$ICAL/ical/lib/libical.a" -lm
 
 D="$HERE/dist/deskkindl"
-rm -rf "$HERE/dist" && mkdir -p "$D/bin"
+mkdir -p "$D/bin" "$D/config"
 cp "$HERE"/kual/deskkindl/config.xml "$HERE"/kual/deskkindl/menu.json "$D/"
 cp "$HERE"/kual/deskkindl/bin/*.sh "$D/bin/"
 cp "$HERE/build-kindle/desk-kindl" "$D/bin/"
-cp -r "$HERE/config" "$D/config"
+cp "$HERE/config/dashboard.conf" "$HERE/config/env.example" "$D/config/"
+cp -r "$HERE/config/scripts" "$ICAL/libical-3.0.20/zoneinfo" "$D/config/"
+cp "$ICAL/libical-3.0.20/LICENSE.MPL2.txt" "$D/libical-LICENSE"
 chmod +x "$D"/bin/* "$D"/config/scripts/*.sh
 file "$D/bin/desk-kindl"
 echo "built: $D"
