@@ -274,8 +274,21 @@ static gboolean on_key(GtkWidget *, GdkEventKey *ev, gpointer) {
     return FALSE;
 }
 
-// Tap anywhere: refresh all panels (handy on a touch Kindle).
-static gboolean on_tap(GtkWidget *, GdkEventButton *, gpointer) {
+// Tap: refresh all panels. Hold for 2+ seconds: quit (the dashboard covers
+// the whole screen, so this is the on-device way out).
+static guint32 g_press_time = 0;
+
+static gboolean on_press(GtkWidget *, GdkEventButton *ev, gpointer) {
+    g_press_time = ev->time;
+    return FALSE;
+}
+
+static gboolean on_release(GtkWidget *, GdkEventButton *ev, gpointer) {
+    if (ev->time - g_press_time >= 2000) {
+        fprintf(stderr, "desk-kindl: long press, quitting\n");
+        gtk_main_quit();
+        return FALSE;
+    }
     for (auto &p : g_cfg.panels) refresh_panel(&p);
     full_refresh_cb(nullptr);
     return FALSE;
@@ -331,8 +344,9 @@ int main(int argc, char **argv) {
 
     GtkWidget *ebox = gtk_event_box_new();
     force_white(ebox);
-    gtk_widget_add_events(ebox, GDK_BUTTON_PRESS_MASK);
-    g_signal_connect(ebox, "button-press-event", G_CALLBACK(on_tap), nullptr);
+    gtk_widget_add_events(ebox, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
+    g_signal_connect(ebox, "button-press-event", G_CALLBACK(on_press), nullptr);
+    g_signal_connect(ebox, "button-release-event", G_CALLBACK(on_release), nullptr);
     gtk_container_add(GTK_CONTAINER(win), ebox);
 
     GtkWidget *root = gtk_vbox_new(FALSE, 12);

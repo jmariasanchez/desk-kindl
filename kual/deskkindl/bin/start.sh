@@ -13,4 +13,6 @@ cd "$DIR/config" || { echo "no config dir" >>"$LOG"; exit 1; }
   "$DIR/bin/desk-kindl" "$DIR/config/dashboard.conf" >>"$LOG" 2>&1
   echo "exit $?" >>"$LOG"
   lipc-set-prop com.lab126.powerd preventScreenSaver 0
+  # Back to the Kindle home screen.
+  lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home 2>/dev/null
 ) </dev/null >/dev/null 2>&1 &

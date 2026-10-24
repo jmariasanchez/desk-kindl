@@ -28,7 +28,7 @@ cp config/env.example config/env   # iCal URL, weather location, repos, hosts...
 make run      # needs gtk+-2.0 via pkg-config; uses kindle = false
 ```
 
-Keys: `r` refresh, `q`/`Esc` quit.
+Keys: `r` refresh, `q`/`Esc` quit. On the Kindle: tap to refresh, hold 2s to quit (or KUAL > Stop dashboard).
 
 ## Build for Kindle
 
